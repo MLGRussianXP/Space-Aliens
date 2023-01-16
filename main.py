@@ -9,6 +9,7 @@ pygame.font.init()
 font1 = pygame.font.Font(None, 80)
 font2 = pygame.font.Font(None, 35)
 win = font1.render('YOU WIN!', True, (255, 255, 255))
+results = 'Вы набрали {0} очков, убив {1} боссов. У вас осталось {2} жизней'
 lose = font1.render('YOU LOSE!', True, (180, 0, 0))
 pause_text = font1.render('Пауза', True, (255, 255, 255))
 lose_boss = font1.render('ХА-ХА! Пропустил босса!', True, (180, 0, 0))
@@ -225,7 +226,13 @@ if __name__ == '__main__':
                     elif not pause and not first_start:
                         pause = True
                         pygame.mixer.music.pause()
-                        window.blit(pause_text, (win_width / 2 - pause_text.get_width() / 2 , win_height / 2 - pause_text.get_height() / 2))
+                        window.blit(
+                            pause_text,
+                            (
+                                win_width / 2 - pause_text.get_width() / 2 ,
+                                win_height / 2 - pause_text.get_height() / 2
+                            )
+                        )
                         pygame.display.update()
 
                 # выход из игры по нажатию Q
@@ -234,7 +241,7 @@ if __name__ == '__main__':
 
                 # событие нажатия на пробел - спрайт стреляет
                 elif e.key == pygame.K_SPACE and not finish and not pause:
-                    # проверяем сколько выстелов сделано и не происходит ли перезарядка
+                    # проверяем сколько выстрелов сделано и не происходит ли перезарядка
                     if num_fire < 5 and rel_time == False:
                         num_fire = num_fire + 1
                         fire_sound.play()
@@ -408,31 +415,51 @@ if __name__ == '__main__':
                         pygame.mixer.music.stop() # останавливаем музыку
                         finish = True
                         make_frame() # отрисовываем фон и счетчики размещая их по центру
+                        window.fill('black')
                         window.blit(lose, (win_width / 2 - lose.get_width() / 2, 200))
                         window.blit(restart, (win_width / 2 - restart.get_width() / 2, 300))
+                        results_rendered = font2.render(
+                            results.format(score, boss_counter, life), True, (255, 204, 0)
+                        )
+                        window.blit(
+                            results_rendered,
+                            (win_width / 2 - results_rendered.get_width() / 2, 350)
+                        )
                         game_over_sound.play()
 
-                    ''' закомментируйте если хотите бесконечную игру '''
                     # проверка выигрыша: сколько очков набрали?
                     if score >= goal:
                         pygame.mixer.music.stop() # останавливаем музыку
                         finish = True
                         make_frame() # отрисовываем фон и счетчики
+                        window.fill('black')
                         window.blit(win, (win_width / 2 - win.get_width() / 2, 200))
                         window.blit(restart, (win_width / 2 - restart.get_width() / 2, 300))
-                    ''' закомментируйте если хотите бесконечную игру '''
+                        results_rendered = font2.render(
+                            results.format(score, boss_counter, life), True, (255, 204, 0)
+                        )
+                        window.blit(
+                            results_rendered,
+                            (win_width / 2 - results_rendered.get_width() / 2, 350)
+                        )
 
                     # перезарядка
-                    if rel_time:
-                        now_time = time()  # считываем время
-                        if now_time - last_time < reload_time:
-                            # пока не прошло reload_time выводим информацию о перезарядке
-                            window.blit(font2.render("Патроны: заряжаем", True, (255, 0, 0)), (10, 110))
+                    if not finish:
+                        if rel_time:
+                            now_time = time()  # считываем время
+                            if now_time - last_time < reload_time:
+                                # пока не прошло reload_time выводим информацию о перезарядке
+                                window.blit(
+                                    font2.render("Патроны: заряжаем", True, (255, 0, 0)), (10, 110)
+                                )
+                            else:
+                                num_fire = 0   # обнуляем счетчик пуль
+                                rel_time = False  # сбрасываем флаг перезарядки
                         else:
-                            num_fire = 0   # обнуляем счетчик пуль
-                            rel_time = False  # сбрасываем флаг перезарядки
-                    else:
-                        window.blit(font2.render("Патроны: " + str(5 - num_fire), True, (255, 255, 255)), (10, 110))
+                            window.blit(
+                                font2.render("Патроны: " + str(5 - num_fire), True, (255, 255, 255)),
+                                (10, 110)
+                            )
 
                     # задаем разный цвет в зависимости от кол-ва жизней
                     if 3 <= life <= 5:
