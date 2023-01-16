@@ -1,8 +1,11 @@
+import datetime
+
 import pygame
 from random import uniform, randint
 from time import time
 import os
 import sys
+import subprocess
 
 # подгружаем отдельно функции для работы со шрифтом
 pygame.font.init()
@@ -15,7 +18,9 @@ pause_text = font1.render('Пауза', True, (255, 255, 255))
 lose_boss = font1.render('ХА-ХА! Пропустил босса!', True, (180, 0, 0))
 restart = font2.render('R - перезапуск', True, (255, 255, 255))  # сообщение о рестарте
 start = font2.render('Нажми цифру чтобы начать', True, (255, 255, 255))  # сообщение о старте
-start_diff = font2.render('1 - Легко, 2 - Норм, 3 - Капец', True, (255, 0, 255))  # выбор сложности
+start_diff = font2.render('1 - Легко, 2 - Норм, 3 - Капец, 4 - Бесконечная игра', True, (255, 0, 255))  # выбор сложности
+start_res_file = font2.render('Enter - открыть файл с результатами', True, (255, 102, 0))
+
 font2 = pygame.font.Font(None, 30)
 
 # фоновая музыка
@@ -33,7 +38,10 @@ destroy_sound = pygame.mixer.Sound('data/destroy.ogg')
 img_back = "galaxy.jpg"  # фон игры
 img_bullet = "bullet.png"  # пуля
 img_hero = "rocket.png"  # герой
-img_enemy = "ufo.png"  # враг
+img_enemy = "ufo.png"
+img_enemy_right = "ufo_right.png"
+img_enemy_down = "ufo_down.png"
+img_enemy_left = "ufo_left.png"  # враг
 img_ast = "asteroid.png"  # астероид
 img_boss = "boss.png"  # босс
 
@@ -50,6 +58,7 @@ reload_time = 0 # время перезарядки
 boss_coming_at = 0 # храним через сколько набранных очков придёт босс
 boss_coming = 0 # через сколько придет следующий босс
 num_fire = 0  # переменная для подсчёта выстрела
+endless_game = False
 
 
 # функция загрузки изображения из папки data
@@ -72,6 +81,7 @@ def load_image(name, colorkey=None):
 
 
 # класс-родитель для других спрайтов
+
 class GameSprite(pygame.sprite.Sprite):
  # конструктор класса
     def __init__(self, player_image, player_x, player_y, size_x, size_y, player_speed):
@@ -86,10 +96,13 @@ class GameSprite(pygame.sprite.Sprite):
         self.rect.x = player_x
         self.rect.y = player_y
     # метод, отрисовывающий героя на окне
+
     def reset(self):
         window.blit(self.image, (self.rect.x, self.rect.y))
 
 # класс главного игрока
+
+
 class Player(GameSprite):
     # метод для управления спрайтом стрелками клавиатуры
     def update(self):
@@ -99,8 +112,10 @@ class Player(GameSprite):
         if keys[pygame.K_RIGHT] and self.rect.x < win_width - 80:
             self.rect.x += self.speed
     # метод "выстрел" (используем место игрока, чтобы создать там пулю)
+
     def fire(self):
         bullets.add(Bullet(img_bullet, self.rect.centerx, self.rect.top, 15, 20, -15))
+
 
 # класс спрайта-врага
 class Enemy(GameSprite):
@@ -116,10 +131,12 @@ class Enemy(GameSprite):
                 return
             lost += 1
 
+
 class Boss(GameSprite):
     def __init__(self, player_image, player_x, player_y, size_x, size_y, lives_count):
         GameSprite.__init__(self, player_image, player_x, player_y, size_x, size_y, 1)
         self.lives = lives_count # у босса новое поле для количества жизней
+
     def update(self):
         global finish
         self.rect.y += self.speed
@@ -130,6 +147,7 @@ class Boss(GameSprite):
             window.blit(lose_boss, (win_width / 2 - lose_boss.get_width() / 2, 200))
             window.blit(restart, (win_width / 2 - restart.get_width() / 2, 300))
 
+
 # класс спрайта-пули
 class Bullet(GameSprite):
     # движение врага
@@ -138,6 +156,7 @@ class Bullet(GameSprite):
         # исчезает, если дойдет до края экрана
         if self.rect.y < 0:
             self.kill()
+
 
 def make_ememies():
     """ Функция uniform из модуля рандом даёт нам возможность получать рандомное число,
@@ -159,6 +178,8 @@ def make_ememies():
     Зачем делать это при выигрыше и проигрыше?
     - Для того чтобы счетчики корректно отображались и не врали.  
 '''
+
+
 def make_frame():
     window.blit(background, (0, 0))
     window.blit(font2.render("Счет: " + str(score) + "/" + str(goal), True, (255, 255, 255)),
@@ -208,6 +229,14 @@ if __name__ == '__main__':
             win_height / 2 - start_diff.get_height() / 2 + 40
         )
     )
+
+    window.blit(
+        start_res_file, (
+            win_width / 2 - start_res_file.get_width() / 2,
+            win_height / 2 - start_res_file.get_height() / 2 + 80
+        )
+    )
+
     pygame.display.update()
 
     # Основной цикл игры:
@@ -290,6 +319,23 @@ if __name__ == '__main__':
                     first_start = False
                     make_ememies()
 
+                elif e.key == pygame.K_4 and first_start:
+                    os.system("TASKKILL /F /IM notepad.exe")
+                    endless_game = True
+                    goal = "бесконечность"
+                    reload_time = 0.5
+                    max_lost = 15
+                    life = max_life = 15
+                    max_enemies = 8
+                    boss_coming_at = boss_coming = 15  # обе переменные будут со значением 10
+                    select_sound.play()
+                    pygame.mixer.music.play()  # воспроизводим музыку только при начале игры
+                    first_start = False
+                    make_ememies()
+
+                elif e.key == pygame.K_RETURN and first_start:
+                    os.system("TASKKILL /F /IM notepad.exe")
+                    os.startfile("statistics.txt")
                 # рестарт - клавиша R, сработает только если игра закончена
                 elif e.key == pygame.K_r and finish:
                     # обнуляемся
@@ -324,6 +370,12 @@ if __name__ == '__main__':
                         start_diff, (
                             win_width / 2 - start_diff.get_width() / 2 ,
                             win_height / 2 - start_diff.get_height() / 2 + 40
+                        )
+                    )
+                    window.blit(
+                        start_res_file, (
+                            win_width / 2 - start_res_file.get_width() / 2,
+                            win_height / 2 - start_res_file.get_height() / 2 + 80
                         )
                     )
                     pygame.mixer.music.play() # воспроизводим музыку только при начале игры
@@ -412,10 +464,19 @@ if __name__ == '__main__':
                     if life == 0 or lost >= max_lost or ship.rect.colliderect(boss):
                         #                               касание босса - это тоже проигрыш
                         # проиграли, ставим фон и больше не управляем спрайтами
-                        pygame.mixer.music.stop() # останавливаем музыку
+                        pygame.mixer.music.stop()  # останавливаем музыку
                         finish = True
-                        make_frame() # отрисовываем фон и счетчики размещая их по центру
+
+                        with open("statistics.txt", "r", encoding="utf-8") as f:
+                            data = f.readlines()
+                            data.insert(0, f"{datetime.datetime.now().strftime('%m.%d.%Y %H:%M:%S')}"
+                                        f" - в это время ваш рекорд составил {score}\n")
+                        with open("statistics.txt", "w", encoding="utf-8") as f:
+                            f.writelines(data)
+                        
                         window.fill('black')
+                        make_frame()  # отрисовываем фон и счетчики размещая их по центру
+                        
                         window.blit(lose, (win_width / 2 - lose.get_width() / 2, 200))
                         window.blit(restart, (win_width / 2 - restart.get_width() / 2, 300))
                         results_rendered = font2.render(
@@ -428,7 +489,7 @@ if __name__ == '__main__':
                         game_over_sound.play()
 
                     # проверка выигрыша: сколько очков набрали?
-                    if score >= goal:
+                    if not endless_game and score >= goal:
                         pygame.mixer.music.stop() # останавливаем музыку
                         finish = True
                         make_frame() # отрисовываем фон и счетчики
@@ -462,7 +523,7 @@ if __name__ == '__main__':
                             )
 
                     # задаем разный цвет в зависимости от кол-ва жизней
-                    if 3 <= life <= 5:
+                    if life >= 3:
                         life_color = (0, 150, 0)
                     elif life == 2:
                         life_color = (150, 150, 0)
@@ -470,7 +531,7 @@ if __name__ == '__main__':
                         life_color = (150, 0, 0)
 
                     text_life = font1.render(str(life), True, life_color)
-                    window.blit(text_life, (750, 10))
+                    window.blit(text_life, (730, 10))
 
                     pygame.display.update()
                 pygame.time.delay(50)
