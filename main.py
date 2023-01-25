@@ -119,8 +119,41 @@ class Player(GameSprite):
 
 # класс спрайта-врага
 class Enemy(GameSprite):
+    def __init__(self, player_image, player_x, player_y, size_x, size_y, player_speed):
+        super().__init__(player_image, player_x, player_y, size_x, size_y, player_speed)
+        # анимация
+        if player_image == img_enemy:
+            self.frames = []
+            self.cut_sheet(load_image(player_image, -1), 3, 1)
+            self.cur_frame = 0
+            self.image = pygame.transform.scale(self.frames[self.cur_frame], (size_x, size_y))
+            self.size_x, self.size_y = size_x, size_y
+            self.counter = 0
+
+    def cut_sheet(self, sheet, columns, rows):
+        rect = pygame.Rect(0, 0, sheet.get_width() // columns,
+                           sheet.get_height() // rows)
+        for j in range(rows):
+            for i in range(columns):
+                frame_location = (rect.w * i, rect.h * j)
+                self.frames.append(
+                    sheet.subsurface(
+                        pygame.Rect(frame_location, rect.size)
+                    )
+                )
+
     # движение врага
     def update(self):
+        # следующий кадр анимации
+        if self.image_name == img_enemy:
+            self.counter += 1
+            if not self.counter % 1.5:
+                self.cur_frame = (self.cur_frame + 1) % len(self.frames)
+                self.image = pygame.transform.scale(
+                    self.frames[self.cur_frame], (self.size_x, self.size_y)
+                )
+
+        # движение
         self.rect.y += self.speed
         global lost
         # исчезает, если дойдет до края экрана
