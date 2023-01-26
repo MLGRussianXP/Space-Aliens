@@ -5,7 +5,6 @@ from random import uniform, randint
 from time import time
 import os
 import sys
-import subprocess
 
 # подгружаем отдельно функции для работы со шрифтом
 pygame.font.init()
@@ -18,7 +17,8 @@ pause_text = font1.render('Пауза', True, (255, 255, 255))
 lose_boss = font1.render('ХА-ХА! Пропустил босса!', True, (180, 0, 0))
 restart = font2.render('R - перезапуск', True, (255, 255, 255))  # сообщение о рестарте
 start = font2.render('Нажми цифру чтобы начать', True, (255, 255, 255))  # сообщение о старте
-start_diff = font2.render('1 - Легко, 2 - Норм, 3 - Капец, 4 - Бесконечная игра', True, (255, 0, 255))  # выбор сложности
+start_diff = font2.render('1 - Легко, 2 - Норм, 3 - Капец, 4 - Бесконечная игра', True,
+                          (255, 0, 255))  # выбор сложности
 start_res_file = font2.render('Enter - открыть файл с результатами', True, (255, 102, 0))
 
 font2 = pygame.font.Font(None, 30)
@@ -26,7 +26,7 @@ font2 = pygame.font.Font(None, 30)
 # фоновая музыка
 pygame.mixer.init()
 pygame.mixer.music.load('data/space.ogg')
-pygame.mixer.music.set_volume(0.2) # громкость музыки 40%
+pygame.mixer.music.set_volume(0.2)  # громкость музыки 40%
 fire_sound = pygame.mixer.Sound('data/fire.ogg')
 reload_sound = pygame.mixer.Sound('data/reload.ogg')
 select_sound = pygame.mixer.Sound('data/select_diff.ogg')
@@ -35,7 +35,7 @@ game_over_sound = pygame.mixer.Sound('data/game_over.ogg')
 destroy_sound = pygame.mixer.Sound('data/destroy.ogg')
 
 # нам нужны такие картинки:
-img_back = "galaxy.jpg"  # фон игры
+img_back = "background_{0}.jpg"  # фон игры
 img_bullet = "bullet.png"  # пуля
 img_hero = "rocket.png"  # герой
 img_enemy = "ufo.png"
@@ -51,12 +51,12 @@ goal = 0  # столько кораблей нужно сбить для поб�
 lost = 0  # пропущено кораблей
 max_lost = 0  # проиграли, если пропустили столько
 life = 0  # текущие жизни
-max_life = 0 # нужно для рестарта, тут храним максимальное количество жизней
+max_life = 0  # нужно для рестарта, тут храним максимальное количество жизней
 max_enemies = 0  # максимальное количество врагов
-boss_counter = 0 # счетчик убитых боссов
-reload_time = 0 # время перезарядки
-boss_coming_at = 0 # храним через сколько набранных очков придёт босс
-boss_coming = 0 # через сколько придет следующий босс
+boss_counter = 0  # счетчик убитых боссов
+reload_time = 0  # время перезарядки
+boss_coming_at = 0  # храним через сколько набранных очков придёт босс
+boss_coming = 0  # через сколько придет следующий босс
 num_fire = 0  # переменная для подсчёта выстрела
 endless_game = False
 
@@ -83,7 +83,7 @@ def load_image(name, colorkey=None):
 # класс-родитель для других спрайтов
 
 class GameSprite(pygame.sprite.Sprite):
- # конструктор класса
+    # конструктор класса
     def __init__(self, player_image, player_x, player_y, size_x, size_y, player_speed):
         # Вызываем конструктор класса (Sprite):
         pygame.sprite.Sprite.__init__(self)
@@ -95,14 +95,13 @@ class GameSprite(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = player_x
         self.rect.y = player_y
-    # метод, отрисовывающий героя на окне
 
+    # метод, отрисовывающий героя на окне
     def reset(self):
         window.blit(self.image, (self.rect.x, self.rect.y))
 
+
 # класс главного игрока
-
-
 class Player(GameSprite):
     # метод для управления спрайтом стрелками клавиатуры
     def update(self):
@@ -111,6 +110,7 @@ class Player(GameSprite):
             self.rect.x -= self.speed
         if keys[pygame.K_RIGHT] and self.rect.x < win_width - 80:
             self.rect.x += self.speed
+
     # метод "выстрел" (используем место игрока, чтобы создать там пулю)
 
     def fire(self):
@@ -119,8 +119,41 @@ class Player(GameSprite):
 
 # класс спрайта-врага
 class Enemy(GameSprite):
+    def __init__(self, player_image, player_x, player_y, size_x, size_y, player_speed):
+        super().__init__(player_image, player_x, player_y, size_x, size_y, player_speed)
+        # анимация
+        if player_image == img_enemy:
+            self.frames = []
+            self.cut_sheet(load_image(player_image, -1), 3, 1)
+            self.cur_frame = 0
+            self.image = pygame.transform.scale(self.frames[self.cur_frame], (size_x, size_y))
+            self.size_x, self.size_y = size_x, size_y
+            self.counter = 0
+
+    def cut_sheet(self, sheet, columns, rows):
+        rect = pygame.Rect(0, 0, sheet.get_width() // columns,
+                           sheet.get_height() // rows)
+        for j in range(rows):
+            for i in range(columns):
+                frame_location = (rect.w * i, rect.h * j)
+                self.frames.append(
+                    sheet.subsurface(
+                        pygame.Rect(frame_location, rect.size)
+                    )
+                )
+
     # движение врага
     def update(self):
+        # следующий кадр анимации
+        if self.image_name == img_enemy:
+            self.counter += 1
+            if not self.counter % 1.5:
+                self.cur_frame = (self.cur_frame + 1) % len(self.frames)
+                self.image = pygame.transform.scale(
+                    self.frames[self.cur_frame], (self.size_x, self.size_y)
+                )
+
+        # движение
         self.rect.y += self.speed
         global lost
         # исчезает, если дойдет до края экрана
@@ -135,15 +168,15 @@ class Enemy(GameSprite):
 class Boss(GameSprite):
     def __init__(self, player_image, player_x, player_y, size_x, size_y, lives_count):
         GameSprite.__init__(self, player_image, player_x, player_y, size_x, size_y, 1)
-        self.lives = lives_count # у босса новое поле для количества жизней
+        self.lives = lives_count  # у босса новое поле для количества жизней
 
     def update(self):
         global finish
         self.rect.y += self.speed
         if self.rect.y > win_height:
-            pygame.mixer.music.stop() # останавливаем музыку
+            pygame.mixer.music.stop()  # останавливаем музыку
             finish = True
-            make_frame() # отрисовываем фон и счетчики размещая их по центру
+            make_frame()  # отрисовываем фон и счетчики размещая их по центру
             window.blit(lose_boss, (win_width / 2 - lose_boss.get_width() / 2, 200))
             window.blit(restart, (win_width / 2 - restart.get_width() / 2, 300))
 
@@ -169,6 +202,7 @@ def make_ememies():
     for _ in range(3):
         asteroids.add(
             Enemy(img_ast, randint(30, win_width - 30), -40, 80, 50, uniform(1.0, 2.0)))
+
 
 ''' 
     Зачем выносить в отдельную функцию отрисовку фона и счетчиков?
@@ -197,7 +231,6 @@ if __name__ == '__main__':
     pygame.display.set_caption("Супермега шутер!")
     win_width = pygame.display.Info().current_w  # получаем ширину окна
     win_height = pygame.display.Info().current_h  # получаем высоту окна
-    background = pygame.transform.scale(load_image(img_back), (win_width, win_height))
     ''' Можно так же адаптировать размеры спрайтов,
     чтобы была зависимость размера спрайта от размера экрана '''
     # создаем спрайты
@@ -208,24 +241,24 @@ if __name__ == '__main__':
     asteroids = pygame.sprite.Group()
     bullets = pygame.sprite.Group()
 
-    finish = False # переменная "игра закончилась": как только там True,
+    finish = False  # переменная "игра закончилась": как только там True,
     # в основном цикле перестают работать спрайты
     run = True  # флаг сбрасывается кнопкой закрытия окна
     rel_time = False  # флаг отвечающий за перезарядку
-    first_start = True # переменная чтобы игра не начиналась после запуска
-    pause = False # переменная которая отвечает за паузу
-    boss_time = False # переменная которая определяет, появится босс или нет
+    first_start = True  # переменная чтобы игра не начиналась после запуска
+    pause = False  # переменная которая отвечает за паузу
+    boss_time = False  # переменная которая определяет, появится босс или нет
 
     ''' 
         Чтобы отобразить надпись ровно по центру нужно знать ширину и высоту окна,
         а так же ширину и высоту спрайта, в данном случае текстового. Формула ниже
     '''
     window.blit(
-        start, (win_width / 2 - start.get_width() / 2 , win_height / 2 - start.get_height() / 2)
+        start, (win_width / 2 - start.get_width() / 2, win_height / 2 - start.get_height() / 2)
     )
     window.blit(
         start_diff, (
-            win_width / 2 - start_diff.get_width() / 2 ,
+            win_width / 2 - start_diff.get_width() / 2,
             win_height / 2 - start_diff.get_height() / 2 + 40
         )
     )
@@ -258,7 +291,7 @@ if __name__ == '__main__':
                         window.blit(
                             pause_text,
                             (
-                                win_width / 2 - pause_text.get_width() / 2 ,
+                                win_width / 2 - pause_text.get_width() / 2,
                                 win_height / 2 - pause_text.get_height() / 2
                             )
                         )
@@ -271,55 +304,63 @@ if __name__ == '__main__':
                 # событие нажатия на пробел - спрайт стреляет
                 elif e.key == pygame.K_SPACE and not finish and not pause:
                     # проверяем сколько выстрелов сделано и не происходит ли перезарядка
-                    if num_fire < 5 and rel_time == False:
+                    if num_fire < 5 and not rel_time:
                         num_fire = num_fire + 1
                         fire_sound.play()
                         ship.fire()
-                    if num_fire >= 5 and rel_time == False:  # если игрок сделал 5 выстрелов
+                    if num_fire >= 5 and not rel_time:  # если игрок сделал 5 выстрелов
                         reload_sound.play()
                         last_time = time()  # засекаем время, когда это произошло
                         rel_time = True  # ставив флаг перезарядки
 
                 # легкий уровень сложности
                 elif e.key == pygame.K_1 and first_start:
+                    background = pygame.transform.scale(load_image(img_back.format("1")),
+                                                        (win_width, win_height))
                     goal = 50
                     reload_time = 1
                     max_lost = 10
                     life = max_life = 5
                     max_enemies = 5
-                    boss_coming_at = boss_coming = 20 # обе переменные будут со значением 20
+                    boss_coming_at = boss_coming = 20  # обе переменные будут со значением 20
                     select_sound.play()
-                    pygame.mixer.music.play() # воспроизводим музыку только при начале игры
+                    pygame.mixer.music.play()  # воспроизводим музыку только при начале игры
                     first_start = False
                     make_ememies()
 
                 # средний уровень сложности
                 elif e.key == pygame.K_2 and first_start:
+                    background = pygame.transform.scale(load_image(img_back.format("2")),
+                                                        (win_width, win_height))
                     goal = 125
                     reload_time = 2
                     max_lost = 7
                     life = max_life = 4
                     max_enemies = 7
-                    boss_coming_at = boss_coming = 15 # обе переменные будут со значением 15
+                    boss_coming_at = boss_coming = 15  # обе переменные будут со значением 15
                     select_sound.play()
-                    pygame.mixer.music.play() # воспроизводим музыку только при начале игры
+                    pygame.mixer.music.play()  # воспроизводим музыку только при начале игры
                     first_start = False
                     make_ememies()
 
                 # сложный уровень сложности
                 elif e.key == pygame.K_3 and first_start:
+                    background = pygame.transform.scale(load_image(img_back.format("3")),
+                                                        (win_width, win_height))
                     goal = 300
                     reload_time = 3
                     max_lost = 5
                     life = max_life = 3
                     max_enemies = 10
-                    boss_coming_at = boss_coming = 10 # обе переменные будут со значением 10
+                    boss_coming_at = boss_coming = 10  # обе переменные будут со значением 10
                     select_sound.play()
-                    pygame.mixer.music.play() # воспроизводим музыку только при начале игры
+                    pygame.mixer.music.play()  # воспроизводим музыку только при начале игры
                     first_start = False
                     make_ememies()
 
                 elif e.key == pygame.K_4 and first_start:
+                    background = pygame.transform.scale(load_image(img_back.format("4")),
+                                                        (win_width, win_height))
                     os.system("TASKKILL /F /IM notepad.exe")
                     endless_game = True
                     goal = "бесконечность"
@@ -340,9 +381,9 @@ if __name__ == '__main__':
                 elif e.key == pygame.K_r and finish:
                     # обнуляемся
                     for monster in monsters:
-                        monster.kill() # убираем всех врагов
+                        monster.kill()  # убираем всех врагов
                     for asteroid in asteroids:
-                        asteroid.kill() # убиваем все астероиды
+                        asteroid.kill()  # убиваем все астероиды
                     for bullet in bullets:
                         ''' удаляем все пули которые на сцене, если этого
                             не сделать они продолжат лететь после рестарта '''
@@ -353,7 +394,7 @@ if __name__ == '__main__':
                     finish = False
                     first_start = True
                     rel_time = False  # флаг отвечающий за перезарядку
-                    pause = False # переменная которая отвечает за паузу
+                    pause = False  # переменная которая отвечает за паузу
                     # обнуляем счетчики
                     score = 0
                     num_fire = 0
@@ -362,13 +403,13 @@ if __name__ == '__main__':
                     window.fill("black")
                     window.blit(
                         start, (
-                            win_width / 2 - start.get_width() / 2 ,
+                            win_width / 2 - start.get_width() / 2,
                             win_height / 2 - start.get_height() / 2
                         )
                     )
                     window.blit(
                         start_diff, (
-                            win_width / 2 - start_diff.get_width() / 2 ,
+                            win_width / 2 - start_diff.get_width() / 2,
                             win_height / 2 - start_diff.get_height() / 2 + 40
                         )
                     )
@@ -378,7 +419,7 @@ if __name__ == '__main__':
                             win_height / 2 - start_res_file.get_height() / 2 + 80
                         )
                     )
-                    pygame.mixer.music.play() # воспроизводим музыку только при начале игры
+                    pygame.mixer.music.play()  # воспроизводим музыку только при начале игры
                     pygame.display.update()
 
         if not first_start:
@@ -405,19 +446,19 @@ if __name__ == '__main__':
                         # собираем касания с пулями
                         cols = pygame.sprite.spritecollide(boss, bullets, True)
                         for col in cols:
-                            boss.lives -= 1 # отнимаем боссу жизни
+                            boss.lives -= 1  # отнимаем боссу жизни
                         window.blit(
                             font2.render("BOSS: " + str(boss.lives), True, (255, 0, 0)), (10, 140)
-                        ) # обновляем счетчик
+                        )  # обновляем счетчик
                         boss.update()
                         boss.reset()
-                        if boss.lives <= 0: # если у босса кончились жизни
+                        if boss.lives <= 0:  # если у босса кончились жизни
                             boss_time = False
                             score += 5
-                            boss_coming = score + boss_coming_at # следующий босс появится через
+                            boss_coming = score + boss_coming_at  # следующий босс появится через
                             # "текущие очки" + "через сколько должен появится босс"
-                            boss_counter += 1 # счетчик поверженных боссов +1
-                            boss.kill() # совсем убиваем его со сцены
+                            boss_counter += 1  # счетчик поверженных боссов +1
+                            boss.kill()  # совсем убиваем его со сцены
 
                     # если не время босса и "когда должен прийти босс" - "текущие очки"
                     # меньше или равно нулю, то пришло время выпускать босса
@@ -425,7 +466,7 @@ if __name__ == '__main__':
                         boss_time = True
                         # параметра скорости нет, скорость у боссов - 1
                         boss = Boss(img_boss, randint(80, win_width - 80), -40, 80, 100, 5)
-                        boss_sound.play() # звук появления босса
+                        boss_sound.play()  # звук появления босса
 
                     # проверка столкновения пули и монстров (и монстр, и пуля при касании исчезают)
                     collides = pygame.sprite.groupcollide(monsters, bullets, True, True)
@@ -470,13 +511,13 @@ if __name__ == '__main__':
                         with open("statistics.txt", "r", encoding="utf-8") as f:
                             data = f.readlines()
                             data.insert(0, f"{datetime.datetime.now().strftime('%m.%d.%Y %H:%M:%S')}"
-                                        f" - в это время ваш рекорд составил {score}\n")
+                                           f" - в это время ваш рекорд составил {score}\n")
                         with open("statistics.txt", "w", encoding="utf-8") as f:
                             f.writelines(data)
-                        
+
                         window.fill('black')
                         make_frame()  # отрисовываем фон и счетчики размещая их по центру
-                        
+
                         window.blit(lose, (win_width / 2 - lose.get_width() / 2, 200))
                         window.blit(restart, (win_width / 2 - restart.get_width() / 2, 300))
                         results_rendered = font2.render(
@@ -490,9 +531,9 @@ if __name__ == '__main__':
 
                     # проверка выигрыша: сколько очков набрали?
                     if not endless_game and score >= goal:
-                        pygame.mixer.music.stop() # останавливаем музыку
+                        pygame.mixer.music.stop()  # останавливаем музыку
                         finish = True
-                        make_frame() # отрисовываем фон и счетчики
+                        make_frame()  # отрисовываем фон и счетчики
                         window.fill('black')
                         window.blit(win, (win_width / 2 - win.get_width() / 2, 200))
                         window.blit(restart, (win_width / 2 - restart.get_width() / 2, 300))
@@ -514,7 +555,7 @@ if __name__ == '__main__':
                                     font2.render("Патроны: заряжаем", True, (255, 0, 0)), (10, 110)
                                 )
                             else:
-                                num_fire = 0   # обнуляем счетчик пуль
+                                num_fire = 0  # обнуляем счетчик пуль
                                 rel_time = False  # сбрасываем флаг перезарядки
                         else:
                             window.blit(
